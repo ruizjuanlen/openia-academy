@@ -122,3 +122,52 @@ cd frontend && npm run android:release
 - targetSdk: 36 (Android 16)
 - Full guide: `PLAY_STORE_GUIDE.md`
 
+---
+
+## 💾 SESSION CHECKPOINT — 2026-05-11
+
+### ✅ 100% COMPLETADO
+- Full React app (5 tracks, 14 lessons, adaptive engine, AI tutor)
+- Backend FastAPI + SQLite + AWS Bedrock (Claude)
+- PWA: vite-plugin-pwa, Workbox SW, manifest, 8 icons, install prompt
+- Capacitor 8: Android project generated, icons, dark theme, signing config
+- GitHub Actions workflow: `.github/workflows/build-apk.yml`
+- Local build script: `build-android.sh`
+- npm scripts: `android:sync`, `android:debug`, `android:release`, `android:open`
+- Play Store guide: `PLAY_STORE_GUIDE.md`
+- All 75 files committed to git (commit: `001de71`)
+
+### 🔜 PENDIENTE PARA MAÑANA
+1. **Subir repo a GitHub** — el workflow de CI/CD necesita un remote
+2. **Generar keystore** y añadir los 4 GitHub Secrets (ver `PLAY_STORE_GUIDE.md`)
+3. **Primer build en GitHub Actions** — validar que el APK sale bien
+4. **Play Store listing assets**:
+   - Feature graphic 1024×500 px
+   - Screenshots (mínimo 2)
+   - Política de privacidad en URL pública
+5. **Registro en Google Play Console** ($25 USD, si no está hecho)
+6. **Subir APK** a pruebas internas → cerradas → producción
+
+### 🚦 ESTADO ACTUAL DE SERVICIOS
+- Frontend dev: `http://localhost:8011` (también `http://172.17.0.3:8011`)
+- Backend: `http://localhost:8012`
+- Production build: `frontend/dist/` (23 entries, 298.14 KiB precached)
+- Android project: `frontend/android/` (sincronizado con dist)
+
+### ▶️ PARA REANUDAR MAÑANA
+```bash
+# Arrancar servicios
+cd /workspace/project/backend && nohup python main.py > /tmp/backend.log 2>&1 &
+cd /workspace/project/frontend && nohup npm run dev > /tmp/frontend.log 2>&1 &
+
+# Verificar que todo funciona
+curl -s http://localhost:8012/api/lessons | python3 -m json.tool | head -20
+
+# Cuando tengas el remote de GitHub:
+git remote add origin https://github.com/TU_USER/openia-academy.git
+git push -u origin master
+
+# Para re-sincronizar Capacitor si cambias código:
+cd frontend && npm run android:sync
+```
+
