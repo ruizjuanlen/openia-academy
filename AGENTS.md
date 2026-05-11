@@ -68,3 +68,57 @@ ADHD UX: short sessions, XP gamification, progress bars, streak tracking
 - Node v22 (frontend)
 - AWS Bedrock region: from `$AWS_REGION`
 - Auth: `$AWS_BEARER_TOKEN_BEDROCK`
+
+---
+
+## PWA & Android APK (COMPLETE ✅)
+
+### PWA Status
+- `vite-plugin-pwa` configured in `vite.config.js` (autoUpdate, Workbox, manifest)
+- 8 icons generated in `public/` (72×72 → 512×512)
+- `manifest.webmanifest` with `standalone`, `portrait`, `education`
+- `index.html` with full PWA meta tags + iOS splash screens
+- Service Worker precaches 23 entries (298.14 KiB)
+- Install banner in `Welcome.jsx` + install button in `Sidebar`
+- `beforeinstallprompt` captured in `App.jsx` context
+
+### Capacitor / Android Status
+- Capacitor 8 installed: `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`
+- Config: `frontend/capacitor.config.json` — appId `com.openia.academy`
+- Android project generated: `frontend/android/`
+- Icons copied to all mipmap densities (mdpi→xxxhdpi)
+- Dark purple theme applied in `android/app/src/main/res/values/styles.xml`
+- Release signing config in `android/app/build.gradle` (env-var or keystore file)
+- `.gitignore` blocks `*.keystore` and `*.jks`
+
+### Build Commands
+```bash
+# Sync web assets to Android project
+cd frontend && npm run android:sync
+
+# Build debug APK (testing)
+cd frontend && npm run android:debug
+# → android/app/build/outputs/apk/debug/app-debug.apk
+
+# Build release APK (Play Store)
+cd frontend && npm run android:release
+
+# Or use the root script (handles keystore generation too)
+./build-android.sh           # debug
+./build-android.sh release   # release + signed
+```
+
+### GitHub Actions CI/CD
+- Workflow: `.github/workflows/build-apk.yml`
+- Triggers: push to main, version tags (`v*`), manual dispatch
+- Debug build: uploads APK as artifact (30-day retention)
+- Release build: signs with keystore, creates GitHub Release on tag push
+- Required secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`
+
+### Play Store Info
+- Package: `com.openia.academy`
+- Category: Education
+- minSdk: 24 (Android 7.0 — 98%+ devices)
+- targetSdk: 36 (Android 16)
+- Full guide: `PLAY_STORE_GUIDE.md`
+

@@ -1,0 +1,34 @@
+{
+  "appId": "com.openia.academy",
+  "appName": "OpenIA Academy",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": "release.keystore",
+      "keystorePassword": "openia2024",
+      "keystoreAlias": "openia",
+      "keystoreAliasPassword": "openia2024",
+      "releaseType": "APK"
+    },
+    "backgroundColor": "#0a0a14",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0a0a14",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#6366f1"
+    }
+  }
+}

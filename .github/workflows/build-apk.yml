@@ -1,0 +1,133 @@
+name: 🤖 Build Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options: [debug, release]
+
+jobs:
+  build-apk:
+    name: Build APK (${{ github.event.inputs.build_type || 'debug' }})
+    runs-on: ubuntu-latest
+
+    steps:
+      # ─── Checkout ─────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ─── Node.js + npm ────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Build web app (Vite + PWA)
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ''
+
+      # ─── Java 17 ──────────────────────────────────────────────
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ─── Android SDK ──────────────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
+
+      # ─── Capacitor sync ───────────────────────────────────────
+      - name: Sync Capacitor to Android
+        working-directory: frontend
+        run: npx cap sync android
+
+      # ─── Build DEBUG APK ──────────────────────────────────────
+      - name: Build Debug APK
+        if: ${{ github.event.inputs.build_type != 'release' }}
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Debug APK
+        if: ${{ github.event.inputs.build_type != 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenIA-Academy-debug.apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      # ─── Build RELEASE APK ────────────────────────────────────
+      - name: Decode Keystore
+        if: ${{ github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > frontend/android/release.keystore
+
+      - name: Build Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/') }}
+        working-directory: frontend/android
+        run: ./gradlew assembleRelease --stacktrace
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Sign Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/') }}
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: frontend/android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenIA-Academy-release-signed.apk
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          retention-days: 90
+
+      # ─── GitHub Release (on tag push) ─────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          name: OpenIA Academy ${{ github.ref_name }}
+          body: |
+            ## 🧠 OpenIA Academy ${{ github.ref_name }}
+
+            Tu academia de IA personalizada — de cero a AI Architect.
+
+            ### 📲 Instalación
+            1. Descarga el APK
+            2. En tu Android: Ajustes → Seguridad → Fuentes desconocidas ✓
+            3. Abre el APK descargado e instala
+
+            ### ✨ Novedades
+            - Build automático desde GitHub Actions
+            - PWA con Service Worker offline
+            - Soporte completo ADHD con lecciones cortas
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

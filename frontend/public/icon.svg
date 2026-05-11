@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow circle -->
+  <circle cx="256" cy="240" r="160" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="40"/>
+
+  <!-- Brain shape (two hemispheres) -->
+  <!-- Left hemisphere -->
+  <path d="M256 160
+    C230 160 210 170 196 186
+    C182 202 176 224 176 244
+    C176 266 182 282 192 294
+    C200 304 212 310 222 314
+    C228 316 232 320 232 326
+    L232 350
+    L256 350
+    L256 160Z"
+    fill="white" opacity="0.95"/>
+
+  <!-- Right hemisphere -->
+  <path d="M256 160
+    C282 160 302 170 316 186
+    C330 202 336 224 336 244
+    C336 266 330 282 320 294
+    C312 304 300 310 290 314
+    C284 316 280 320 280 326
+    L280 350
+    L256 350
+    L256 160Z"
+    fill="white" opacity="0.85"/>
+
+  <!-- Center divider line -->
+  <line x1="256" y1="168" x2="256" y2="350" stroke="url(#bg)" stroke-width="4"/>
+
+  <!-- Neural connections - left -->
+  <circle cx="210" cy="210" r="7" fill="url(#glow)" opacity="0.9"/>
+  <circle cx="196" cy="250" r="6" fill="url(#glow)" opacity="0.9"/>
+  <circle cx="208" cy="290" r="7" fill="url(#glow)" opacity="0.9"/>
+  <line x1="210" y1="210" x2="196" y2="250" stroke="#c4b5fd" stroke-width="2.5" opacity="0.8"/>
+  <line x1="196" y1="250" x2="208" y2="290" stroke="#c4b5fd" stroke-width="2.5" opacity="0.8"/>
+  <line x1="210" y1="210" x2="240" y2="235" stroke="#c4b5fd" stroke-width="2" opacity="0.6"/>
+  <line x1="196" y1="250" x2="240" y2="255" stroke="#c4b5fd" stroke-width="2" opacity="0.6"/>
+
+  <!-- Neural connections - right -->
+  <circle cx="302" cy="210" r="7" fill="url(#glow)" opacity="0.9"/>
+  <circle cx="316" cy="250" r="6" fill="url(#glow)" opacity="0.9"/>
+  <circle cx="304" cy="290" r="7" fill="url(#glow)" opacity="0.9"/>
+  <line x1="302" y1="210" x2="316" y2="250" stroke="#c4b5fd" stroke-width="2.5" opacity="0.8"/>
+  <line x1="316" y1="250" x2="304" y2="290" stroke="#c4b5fd" stroke-width="2.5" opacity="0.8"/>
+  <line x1="302" y1="210" x2="272" y2="235" stroke="#c4b5fd" stroke-width="2" opacity="0.6"/>
+  <line x1="316" y1="250" x2="272" y2="255" stroke="#c4b5fd" stroke-width="2" opacity="0.6"/>
+
+  <!-- Center spark node -->
+  <circle cx="256" cy="245" r="9" fill="white" opacity="1"/>
+  <circle cx="256" cy="245" r="5" fill="url(#glow)"/>
+
+  <!-- Base connector bar -->
+  <rect x="228" y="350" width="56" height="8" rx="4" fill="white" opacity="0.5"/>
+
+  <!-- Text "IA" below brain -->
+  <text x="256" y="415" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="52" fill="white" letter-spacing="4" opacity="0.95">IA</text>
+</svg>

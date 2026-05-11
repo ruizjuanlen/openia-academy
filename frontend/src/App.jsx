@@ -28,7 +28,7 @@ function ToastContainer({ toasts, remove }) {
   )
 }
 
-function Sidebar({ user }) {
+function Sidebar({ user, installPrompt, onInstall }) {
   const navigate = useNavigate()
   const location = useLocation()
   const path = location.pathname
@@ -72,8 +72,16 @@ function Sidebar({ user }) {
         </button>
       ))}
 
+      {/* PWA Install */}
+      {installPrompt && (
+        <button className="pwa-install-btn" onClick={onInstall}>
+          <span>📲</span>
+          <span>Instalar App</span>
+        </button>
+      )}
+
       {/* Streak */}
-      <div className="streak-badge" style={{ marginTop: 'auto' }}>
+      <div className="streak-badge" style={{ marginTop: installPrompt ? '12px' : 'auto' }}>
         <div className="streak-fire">🔥</div>
         <div className="streak-count">{user.streak}</div>
         <div className="streak-label">días seguidos</div>
@@ -82,11 +90,57 @@ function Sidebar({ user }) {
   )
 }
 
+function MobileNav({ user }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const path = location.pathname
+  if (!user) return null
+
+  const items = [
+    { icon: '🏠', label: 'Inicio',  to: '/dashboard' },
+    { icon: '🗺️', label: 'Rutas',   to: '/skill-tree' },
+    { icon: '🤖', label: 'Tutor',   to: '/tutor' },
+  ]
+  return (
+    <nav className="mobile-nav">
+      {items.map(item => (
+        <button
+          key={item.to}
+          className={`mobile-nav-item ${path === item.to ? 'active' : ''}`}
+          onClick={() => navigate(item.to)}
+        >
+          <span>{item.icon}</span>
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 function AppProvider() {
   const [userId, setUserId] = useState(() => localStorage.getItem('openia_uid'))
   const [user, setUser] = useState(null)
   const [toasts, setToasts] = useState([])
+  const [installPrompt, setInstallPrompt] = useState(null)
   const navigate = useNavigate()
+
+  // Capturar el evento de instalación PWA
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', () => setInstallPrompt(null))
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function handleInstall() {
+    if (!installPrompt) return
+    installPrompt.prompt()
+    const { outcome } = await installPrompt.userChoice
+    if (outcome === 'accepted') {
+      setInstallPrompt(null)
+      addToast({ icon: '📲', title: '¡App instalada!', body: 'OpenIA Academy está en tu pantalla de inicio.' })
+    }
+  }
 
   // Cargar datos del usuario
   const loadUser = useCallback(async (uid) => {
@@ -134,12 +188,12 @@ function AppProvider() {
     navigate('/')
   }
 
-  const ctx = { userId, user, loadUser, login, logout, addToast }
+  const ctx = { userId, user, loadUser, login, logout, addToast, installPrompt, handleInstall }
 
   return (
     <AppCtx.Provider value={ctx}>
       <div className="app-shell">
-        <Sidebar user={user} />
+        <Sidebar user={user} installPrompt={installPrompt} onInstall={handleInstall} />
         <main className={user ? 'main-content' : ''} style={{ width: '100%' }}>
           <Routes>
             <Route path="/"            element={<Welcome />} />
@@ -151,6 +205,7 @@ function AppProvider() {
           </Routes>
         </main>
       </div>
+      <MobileNav user={user} />
       <ToastContainer toasts={toasts} />
     </AppCtx.Provider>
   )

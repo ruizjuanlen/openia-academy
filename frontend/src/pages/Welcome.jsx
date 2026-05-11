@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useApp } from '../App.jsx'
 
 export default function Welcome() {
-  const { login } = useApp()
+  const { login, installPrompt, handleInstall } = useApp()
   const [name, setName] = useState('')
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -98,6 +98,17 @@ export default function Welcome() {
         <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 15 }}>{s.subtitle}</p>
         {s.content}
       </div>
+
+      {installPrompt && (
+        <button className="pwa-banner" onClick={handleInstall}>
+          <img src="/icon-72.png" alt="icon" width={36} height={36} style={{ borderRadius: 8 }} />
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Instalar OpenIA Academy</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Añadir a la pantalla de inicio</div>
+          </div>
+          <span style={{ fontSize: 20 }}>📲</span>
+        </button>
+      )}
     </div>
   )
 }
