@@ -3,179 +3,220 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../App.jsx'
 import { api } from '../api.js'
 
-// ── Section renderer ─────────────────────────────────────────
+// ── Rich text renderer ────────────────────────────────────────
 function renderBody(text) {
   if (!text) return null
-  // Bold: **text**
-  const parts = text.split(/(\*\*[^*]+\*\*|\`[^`]+\`)/g)
-  return parts.map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>
-    if (p.startsWith('`') && p.endsWith('`')) return (
-      <code key={i} style={{ background: 'rgba(99,102,241,0.15)', padding: '1px 6px', borderRadius: 4, fontSize: '0.9em', fontFamily: 'JetBrains Mono, monospace' }}>{p.slice(1, -1)}</code>
-    )
-    // Line breaks
-    return p.split('\n').map((line, j) => (
-      <span key={j}>{line}{j < p.split('\n').length - 1 ? <br /> : null}</span>
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
+    if (p.startsWith('**') && p.endsWith('**'))
+      return <strong key={i}>{p.slice(2, -2)}</strong>
+    if (p.startsWith('`') && p.endsWith('`'))
+      return <code key={i} className="inline-code">{p.slice(1, -1)}</code>
+    return p.split('\n').map((line, j, arr) => (
+      <span key={j}>{line}{j < arr.length - 1 ? <br /> : null}</span>
     ))
   })
 }
 
-function Section({ section }) {
-  const typeLabels = {
-    concept: { label: 'Concepto', color: '#6366f1' },
-    analogy: { label: '💡 Analogía', color: '#f59e0b' },
-    fact: { label: '⚡ Dato clave', color: '#10b981' },
-    example: { label: '🔬 Ejemplo', color: '#0ea5e9' },
+// ── Progress dots ─────────────────────────────────────────────
+function ProgressDots({ total, current }) {
+  return (
+    <div className="progress-dots">
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} className={`progress-dot${i < current ? ' done' : i === current ? ' active' : ''}`} />
+      ))}
+    </div>
+  )
+}
+
+// ── Code block inside a section ───────────────────────────────
+function CodeBody({ body }) {
+  const match = body.match(/```[\w]*\n?([\s\S]*?)```/)
+  const code   = match ? match[1].trim() : ''
+  const before = body.split('```')[0].trim()
+  const after  = body.split('```').slice(2).join('').replace(/^\w+\n/, '').trim()
+  return (
+    <>
+      {before && <div className="ic-body mb-12">{renderBody(before)}</div>}
+      {code   && <pre className="code-block">{code}</pre>}
+      {after  && <div className="ic-body mt-12">{renderBody(after)}</div>}
+    </>
+  )
+}
+
+// ── Single interactive section card ──────────────────────────
+const TYPE_CFG = {
+  concept: { label: 'Concepto',   icon: '🧠', color: '#6366f1', reveal: true  },
+  analogy: { label: 'Analogía',   icon: '💡', color: '#f59e0b', reveal: false },
+  fact:    { label: 'Dato clave', icon: '⚡', color: '#10b981', reveal: false },
+  example: { label: 'Ejemplo',    icon: '🔬', color: '#0ea5e9', reveal: false },
+}
+
+function SectionCard({ section, index, total, onContinue }) {
+  const [revealed,  setRevealed]  = useState(false)
+  const [reaction,  setReaction]  = useState(null)
+  const cfg = TYPE_CFG[section.type] || { label: section.type, icon: '📌', color: '#94a3b8', reveal: false }
+  const show = !cfg.reveal || revealed
+
+  function react(r) {
+    setReaction(r)
+    setTimeout(onContinue, 380)
   }
 
-  const meta = typeLabels[section.type] || { label: section.type, color: '#94a3b8' }
-
+  // ── Fact: always visible, single tap to continue
   if (section.type === 'fact') {
     return (
-      <div className="fact-box">
-        {renderBody(section.body)}
-      </div>
-    )
-  }
-
-  if (section.type === 'analogy') {
-    return (
-      <div className="section-card">
-        <div className="section-type-label" style={{ color: meta.color }}>
-          {meta.label}
-        </div>
-        {section.title && <div className="section-title">{section.title}</div>}
-        <div className="section-body">{renderBody(section.body)}</div>
-      </div>
-    )
-  }
-
-  if (section.is_code) {
-    const lines = (section.body || '').split('\n')
-    const code = lines.filter(l => l.trim().startsWith('```') === false)
-    const codeContent = code.join('\n').replace(/^```\w*\n?/, '').replace(/```$/, '')
-    const text = section.body.split('```')[0]
-    const afterCode = section.body.split('```').slice(2).join('').replace(/^\w*\n/, '')
-
-    return (
-      <div className="section-card">
-        <div className="section-type-label" style={{ color: meta.color }}>{meta.label}</div>
-        {section.title && <div className="section-title">{section.title}</div>}
-        {text && <div className="section-body mb-12">{renderBody(text)}</div>}
-        <pre className="code-block">{codeContent.trim()}</pre>
-        {afterCode && <div className="section-body mt-12">{renderBody(afterCode.trim())}</div>}
+      <div className="ic-card ic-fact" style={{ '--cc': cfg.color }}>
+        <div className="ic-fact-icon">{cfg.icon}</div>
+        <div className="ic-body">{renderBody(section.body)}</div>
+        <button className="ic-continue" onClick={onContinue}>Entendido →</button>
       </div>
     )
   }
 
   return (
-    <div className="section-card">
-      <div className="section-type-label" style={{ color: meta.color }}>{meta.label}</div>
-      {section.title && <div className="section-title">{section.title}</div>}
-      <div className="section-body">{renderBody(section.body)}</div>
+    <div className="ic-card" style={{ '--cc': cfg.color }}>
+      {/* meta row */}
+      <div className="ic-meta">
+        <span>{cfg.icon}</span>
+        <span className="ic-label" style={{ color: cfg.color }}>{cfg.label}</span>
+        <span className="ic-counter">{index + 1} / {total}</span>
+      </div>
+
+      {section.title && <div className="ic-title">{section.title}</div>}
+
+      {!show ? (
+        <button className="ic-reveal" onClick={() => setRevealed(true)}>
+          <span>Toca para revelar</span><span style={{ fontSize: 20 }}>👆</span>
+        </button>
+      ) : (
+        <div className="ic-revealed">
+          {section.is_code
+            ? <CodeBody body={section.body} />
+            : <div className="ic-body">{renderBody(section.body)}</div>}
+
+          {!reaction ? (
+            <div className="ic-reactions">
+              <button className="ic-react good" onClick={() => react('good')}>👍 Lo entendí</button>
+              <button className="ic-react meh"  onClick={() => react('meh')}>🤔 Sigo leyendo</button>
+            </div>
+          ) : (
+            <div className="ic-reaction-done">
+              {reaction === 'good' ? '✅ ¡Perfecto!' : '📖 Anotado, seguimos...'}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Quiz ─────────────────────────────────────────────────────
+// ── Quiz (game mode) ──────────────────────────────────────────
+const LETTERS = ['A', 'B', 'C', 'D']
+
 function Quiz({ questions, onComplete }) {
-  const [current, setCurrent] = useState(0)
+  const [current,  setCurrent]  = useState(0)
   const [selected, setSelected] = useState(null)
   const [answered, setAnswered] = useState(false)
-  const [answers, setAnswers] = useState([])
+  const [answers,  setAnswers]  = useState([])
+  const [streak,   setStreak]   = useState(0)
+  const [showXP,   setShowXP]   = useState(false)
   const startRef = useRef(Date.now())
 
   function select(idx) {
     if (answered) return
-    const elapsed = Date.now() - startRef.current
-    const q = questions[current]
+    const q       = questions[current]
+    const correct = idx === q.correct
     setSelected(idx)
     setAnswered(true)
     setAnswers(prev => [...prev, {
       question_id: q.id,
-      correct: idx === q.correct,
-      response_time_ms: elapsed,
+      correct,
+      response_time_ms: Date.now() - startRef.current,
     }])
+    if (correct) { setStreak(s => s + 1); setShowXP(true); setTimeout(() => setShowXP(false), 1300) }
+    else          { setStreak(0) }
   }
 
   function next() {
     if (current < questions.length - 1) {
-      setCurrent(c => c + 1)
-      setSelected(null)
-      setAnswered(false)
-      startRef.current = Date.now()
+      setCurrent(c => c + 1); setSelected(null); setAnswered(false); startRef.current = Date.now()
     } else {
       onComplete(answers)
     }
   }
 
   if (!questions.length) return (
-    <div style={{ textAlign: 'center', padding: 24 }}>
-      <button className="btn btn-primary btn-lg" onClick={() => onComplete([])}>
-        Completar lección →
-      </button>
+    <div className="flex-center" style={{ padding: 32 }}>
+      <button className="btn btn-primary btn-lg" onClick={() => onComplete([])}>Completar lección →</button>
     </div>
   )
 
   const q = questions[current]
 
   return (
-    <div className="section-card">
-      <div style={{ fontSize: 11, color: 'var(--primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-        Quiz • {current + 1}/{questions.length}
+    <div className="quiz-game">
+      {/* header */}
+      <div className="quiz-head">
+        <span className="quiz-count">{current + 1} / {questions.length}</span>
+        {streak >= 2 && <span className="quiz-streak">🔥 {streak} en racha</span>}
       </div>
-      <div className="question-text" style={{ fontSize: 16, marginBottom: 20 }}>{q.question}</div>
 
-      {q.options.map((opt, i) => {
-        let cls = 'option-btn'
-        if (answered) {
-          if (i === q.correct) cls += ' correct'
-          else if (i === selected && i !== q.correct) cls += ' wrong'
-        }
-        return (
-          <button key={i} className={cls} onClick={() => select(i)} disabled={answered}>
-            <span style={{ color: 'var(--text-muted)', marginRight: 10, fontSize: 12 }}>
-              {String.fromCharCode(65 + i)}.
-            </span>
-            {opt}
-          </button>
-        )
-      })}
+      {/* bar */}
+      <div className="quiz-bar">
+        <div className="quiz-bar-fill" style={{ width: `${(current / questions.length) * 100}%` }} />
+      </div>
 
+      {/* floating XP */}
+      {showXP && <div className="xp-float">+10 XP ⭐</div>}
+
+      {/* question */}
+      <div className="quiz-question">{q.question}</div>
+
+      {/* options */}
+      <div className="quiz-options">
+        {q.options.map((opt, i) => {
+          let cls = 'quiz-opt'
+          if (answered) {
+            if (i === q.correct)                cls += ' q-correct'
+            else if (i === selected)            cls += ' q-wrong'
+          }
+          return (
+            <button key={i} className={cls} onClick={() => select(i)} disabled={answered}>
+              <span className="q-letter">{LETTERS[i]}</span>
+              <span className="q-text">{opt}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* explanation */}
       {answered && (
-        <>
-          <div className="explanation-box">
-            {selected === q.correct ? '✅ ' : '❌ '}{q.explanation}
-          </div>
-          <button className="btn btn-primary btn-full mt-16" onClick={next}>
-            {current < questions.length - 1 ? 'Siguiente pregunta →' : 'Ver resultados →'}
+        <div className={`quiz-expl ${selected === q.correct ? 'expl-ok' : 'expl-fail'}`}>
+          <span style={{ fontSize: 20 }}>{selected === q.correct ? '✅' : '❌'}</span>
+          <span>{q.explanation}</span>
+          <button className="btn btn-primary btn-full mt-16" onClick={next} style={{ fontSize: 16 }}>
+            {current < questions.length - 1 ? 'Siguiente →' : 'Ver resultados →'}
           </button>
-        </>
+        </div>
       )}
     </div>
   )
 }
 
-// ── Results Screen ────────────────────────────────────────────
-function LessonResults({ result, lesson, navigate, userId }) {
-  const pct = Math.round((result.score || 0) * 100)
+// ── Results ───────────────────────────────────────────────────
+function LessonResults({ result, lesson, navigate }) {
+  const pct   = Math.round((result.score || 0) * 100)
   const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '💪'
-  const msg = pct >= 80
-    ? '¡Excelente trabajo!'
-    : pct >= 60
-    ? 'Bien hecho. Sigue practicando.'
-    : 'Practica más este tema — lo dominarás.'
+  const msg   = pct >= 80 ? '¡Excelente! Dominas este tema.'
+              : pct >= 60 ? 'Bien hecho. Sigue practicando.'
+              : 'Practica más — lo dominarás pronto.'
+  const scoreColor = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)'
 
   return (
     <div className="result-screen">
-      <div style={{ fontSize: 64 }}>{emoji}</div>
-      <div
-        className="result-score"
-        style={{ color: pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)' }}
-      >
-        {pct}%
-      </div>
-      <div style={{ color: 'var(--text-secondary)', marginBottom: 20, fontSize: 16 }}>{msg}</div>
+      <div style={{ fontSize: 72, marginBottom: 8 }}>{emoji}</div>
+      <div className="result-score" style={{ color: scoreColor }}>{pct}%</div>
+      <div style={{ color: 'var(--text-secondary)', marginBottom: 16, fontSize: 16 }}>{msg}</div>
       <div className="xp-pop">+{result.xp_earned} XP</div>
 
       {result.new_achievements?.length > 0 && (
@@ -184,7 +225,7 @@ function LessonResults({ result, lesson, navigate, userId }) {
             🏆 Nuevo logro desbloqueado
           </div>
           {result.new_achievements.map(a => (
-            <div key={a.id} className="flex gap-12" style={{ alignItems: 'center' }}>
+            <div key={a.id} className="flex gap-12" style={{ alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: 28 }}>{a.icon}</span>
               <div>
                 <div style={{ fontWeight: 600 }}>{a.name}</div>
@@ -196,47 +237,44 @@ function LessonResults({ result, lesson, navigate, userId }) {
       )}
 
       <div className="flex-center gap-12 mt-24">
-        <button className="btn btn-ghost" onClick={() => navigate(`/lesson/${lesson.id}`)}>
-          🔁 Repasar
-        </button>
-        <button className="btn btn-primary btn-lg" onClick={() => navigate('/dashboard')}>
-          Continuar →
-        </button>
+        <button className="btn btn-ghost" onClick={() => navigate(`/lesson/${lesson.id}`)}>🔁 Repasar</button>
+        <button className="btn btn-primary btn-lg" onClick={() => navigate('/dashboard')}>Continuar →</button>
       </div>
     </div>
   )
 }
 
-// ── Main Lesson Page ──────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────
 export default function LessonPage() {
-  const { id } = useParams()
+  const { id }  = useParams()
   const { userId, addToast, loadUser } = useApp()
   const navigate = useNavigate()
-  const [lesson, setLesson] = useState(null)
-  const [phase, setPhase] = useState('content') // content | quiz | results
-  const [result, setResult] = useState(null)
+  const [lesson,   setLesson]   = useState(null)
+  const [phase,    setPhase]    = useState('content') // content | summary | quiz | results
+  const [result,   setResult]   = useState(null)
+  const [secIdx,   setSecIdx]   = useState(0)
   const [startTime] = useState(Date.now())
+  const topRef = useRef(null)
 
-  useEffect(() => {
-    api.getLesson(id, userId).then(setLesson)
-    window.scrollTo(0, 0)
-  }, [id, userId])
+  useEffect(() => { api.getLesson(id, userId).then(setLesson); window.scrollTo(0, 0) }, [id, userId])
 
   async function handleQuizComplete(answers) {
     const secs = Math.round((Date.now() - startTime) / 1000)
-    const res = await api.submitQuiz(userId, {
-      lesson_id: id,
-      answers,
-      time_spent_seconds: secs,
-    })
+    const res  = await api.submitQuiz(userId, { lesson_id: id, answers, time_spent_seconds: secs })
     setResult(res)
     setPhase('results')
     await loadUser(userId)
-
-    res.new_achievements?.forEach(a => {
+    res.new_achievements?.forEach(a =>
       addToast({ type: 'achievement', icon: a.icon, title: `Logro: ${a.name}`, body: `+${a.xp} XP` })
-    })
+    )
     addToast({ type: 'xp', icon: '⭐', title: `+${res.xp_earned} XP ganados`, body: lesson?.title })
+  }
+
+  function advanceSection() {
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const sections = lesson.content?.sections || []
+    if (secIdx < sections.length - 1) setSecIdx(s => s + 1)
+    else setPhase('summary')
   }
 
   if (!lesson) return (
@@ -245,100 +283,103 @@ export default function LessonPage() {
     </div>
   )
 
-  const sections = lesson.content?.sections || []
-  const summary = lesson.content?.summary || []
-  const hook = lesson.content?.hook
-  const questions = lesson.quiz_questions || []
+  const sections  = lesson.content?.sections || []
+  const summary   = lesson.content?.summary  || []
+  const hook      = lesson.content?.hook
+  const questions = lesson.quiz_questions    || []
 
-  if (phase === 'results') {
-    return <LessonResults result={result} lesson={lesson} navigate={navigate} userId={userId} />
-  }
+  // overall progress 0→1
+  const progress = phase === 'results' ? 1
+    : phase === 'quiz'    ? 0.88
+    : phase === 'summary' ? 0.72
+    : ((secIdx + (hook ? 0 : 0)) / Math.max(sections.length, 1)) * 0.68
+
+  if (phase === 'results') return <LessonResults result={result} lesson={lesson} navigate={navigate} />
 
   return (
-    <div>
-      {/* Lesson header */}
+    <div style={{ paddingBottom: 80 }}>
+      {/* slim top progress */}
       <div className="lesson-progress-bar">
         <div className="progress-bar" style={{ height: 4 }}>
-          <div
-            className="progress-fill"
-            style={{
-              width: phase === 'content' ? '50%' : '90%',
-              background: 'linear-gradient(90deg, var(--primary), var(--secondary))'
-            }}
-          />
+          <div className="progress-fill" style={{
+            width: `${Math.round(progress * 100)}%`,
+            background: 'linear-gradient(90deg, var(--primary), var(--secondary))',
+            transition: 'width 0.5s ease',
+          }} />
         </div>
       </div>
 
-      {/* Back */}
       <button className="btn btn-ghost mb-16" onClick={() => navigate(-1)} style={{ fontSize: 13 }}>
         ← Volver
       </button>
 
-      {/* Title area */}
-      <div className="lesson-header">
+      {/* lesson title */}
+      <div className="lesson-header" ref={topRef}>
         <div className="flex gap-8 mb-8" style={{ flexWrap: 'wrap' }}>
           <span className="badge badge-muted">⏱ {lesson.duration_min} min</span>
           <span className="badge badge-primary">+{lesson.xp_reward} XP</span>
           <span className="badge badge-muted">{lesson.difficulty}</span>
         </div>
-        <h1 style={{ fontSize: 24, lineHeight: 1.3 }}>{lesson.title}</h1>
+        <h1 style={{ fontSize: 22, lineHeight: 1.3 }}>{lesson.title}</h1>
       </div>
 
+      {/* ── CONTENT PHASE ── */}
       {phase === 'content' && (
         <>
-          {/* Hook */}
-          {hook && (
-            <div className="card mb-20" style={{
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.06))',
-              border: '1px solid rgba(99,102,241,0.25)',
-              fontSize: 16,
-              fontStyle: 'italic',
-              lineHeight: 1.7,
-              color: 'var(--text-secondary)'
-            }}>
-              💭 {hook}
+          {secIdx === 0 && hook && (
+            <div className="hook-card">
+              <div style={{ fontSize: 24, flexShrink: 0 }}>💭</div>
+              <div className="hook-text">{hook}</div>
             </div>
           )}
 
-          {/* Sections */}
-          {sections.map((sec, i) => <Section key={i} section={sec} />)}
+          <ProgressDots total={sections.length} current={secIdx} />
 
-          {/* Summary */}
+          <SectionCard
+            key={secIdx}
+            section={sections[secIdx]}
+            index={secIdx}
+            total={sections.length}
+            onContinue={advanceSection}
+          />
+        </>
+      )}
+
+      {/* ── SUMMARY PHASE ── */}
+      {phase === 'summary' && (
+        <>
           {summary.length > 0 && (
-            <div className="section-card" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <div className="section-type-label" style={{ color: 'var(--success)' }}>Resumen</div>
-              <ul className="summary-list">
-                {summary.map((s, i) => <li key={i}>{s}</li>)}
-              </ul>
+            <div className="summary-card">
+              <div className="summary-title">📋 Resumen rápido</div>
+              {summary.map((s, i) => (
+                <div key={i} className="summary-item">
+                  <span className="summary-check">✓</span>
+                  <span>{s}</span>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Start quiz */}
-          <div className="text-center mt-32 mb-32">
-            <p className="text-muted mb-16" style={{ fontSize: 14 }}>
+          <div className="text-center mt-32">
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>
               {questions.length > 0
-                ? `${questions.length} preguntas para consolidar lo aprendido`
-                : 'Sin quiz para esta lección'}
+                ? `${questions.length} preguntas rápidas para afianzar`
+                : 'Lección completada 🎉'}
             </p>
             <button
               className="btn btn-primary btn-lg"
+              style={{ fontSize: 18, padding: '14px 40px' }}
               onClick={() => questions.length > 0 ? setPhase('quiz') : handleQuizComplete([])}
             >
-              {questions.length > 0 ? 'Empezar Quiz →' : 'Completar lección →'}
+              {questions.length > 0 ? '🎯 Empezar Quiz' : '✅ Completar'}
             </button>
           </div>
         </>
       )}
 
+      {/* ── QUIZ PHASE ── */}
       {phase === 'quiz' && (
-        <>
-          <div className="card mb-20" style={{ background: 'rgba(99,102,241,0.06)', textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Demuestra lo que has aprendido. Cada respuesta, correcta o no, mejora tu perfil.
-            </div>
-          </div>
-          <Quiz questions={questions} onComplete={handleQuizComplete} />
-        </>
+        <Quiz questions={questions} onComplete={handleQuizComplete} />
       )}
     </div>
   )
