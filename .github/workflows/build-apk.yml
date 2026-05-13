@@ -17,6 +17,8 @@ jobs:
   build-apk:
     name: Build APK (${{ github.event.inputs.build_type || 'debug' }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create GitHub Releases and upload APK assets
 
     steps:
       # ─── Checkout ─────────────────────────────────────────────
