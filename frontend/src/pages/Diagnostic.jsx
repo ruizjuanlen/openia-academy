@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App.jsx'
 import { api } from '../api.js'
+import { shuffleOptions, updateCard } from '../srs.js'
 
 const TOPIC_LABELS = {
   foundations: 'Fundamentos IA',
@@ -34,7 +35,12 @@ export default function Diagnostic() {
 
   useEffect(() => {
     api.getDiagnostic().then(d => {
-      setQuestions(d.questions)
+      // Shuffle options to prevent length bias
+      const shuffled = d.questions.map(q => {
+        const { options, correctIndex } = shuffleOptions(q.options, q.correct)
+        return { ...q, options, correct: correctIndex }
+      })
+      setQuestions(shuffled)
       setLoading(false)
     })
   }, [])
@@ -51,9 +57,15 @@ export default function Diagnostic() {
     setSelected(idx)
     setAnswered(true)
     const q = questions[current]
+    const correct = idx === q.correct
+    // Registrar en SRS
+    if (userId && q.id) updateCard(userId, q.id, correct, elapsed)
     setAnswers(prev => [...prev, {
       question_id: q.id,
       answer: idx,
+      correct,
+      topic: q.topic,
+      concept: q.concept,
       response_time_ms: elapsed,
     }])
   }

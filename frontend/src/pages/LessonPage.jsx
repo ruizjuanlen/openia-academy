@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../App.jsx'
 import { api } from '../api.js'
+import { updateCard, shuffleOptions } from '../srs.js'
 
 // ── TTS helper ────────────────────────────────────────────────
 const LETTERS = ['A', 'B', 'C', 'D']
@@ -157,7 +158,7 @@ function SectionCard({ section, index, total, onContinue, ttsEnabled, speak }) {
 
 // ── Quiz (game mode) ──────────────────────────────────────────
 
-function Quiz({ questions, onComplete, ttsEnabled, speak }) {
+function Quiz({ questions, onComplete, ttsEnabled, speak, userId }) {
   const [current,  setCurrent]  = useState(0)
   const [selected, setSelected] = useState(null)
   const [answered, setAnswered] = useState(false)
@@ -166,10 +167,19 @@ function Quiz({ questions, onComplete, ttsEnabled, speak }) {
   const [showXP,   setShowXP]   = useState(false)
   const startRef = useRef(Date.now())
 
+  // Pre-shuffle ALL questions' options once on mount (anti-length-bias)
+  const shuffledQuestions = useMemo(() => questions.map(q => {
+    const { options, correctIndex } = shuffleOptions(q.options, q.correct)
+    return { ...q, options, correct: correctIndex }
+  }), [questions]) // eslint-disable-line
+
+  // Reset timer when question changes
+  useEffect(() => { startRef.current = Date.now() }, [current])
+
   // Auto-speak question + options when question changes
   useEffect(() => {
-    if (!questions.length || !ttsEnabled || !speak) return
-    const q = questions[current]
+    if (!shuffledQuestions.length || !ttsEnabled || !speak) return
+    const q = shuffledQuestions[current]
     const text = q.question + '. ' +
       q.options.map((opt, i) => `${LETTERS[i]}: ${opt}`).join('. ')
     speak(text)
@@ -177,46 +187,55 @@ function Quiz({ questions, onComplete, ttsEnabled, speak }) {
 
   function select(idx) {
     if (answered) return
-    const q       = questions[current]
-    const correct = idx === q.correct
+    const q        = shuffledQuestions[current]
+    const timeMs   = Date.now() - startRef.current
+    const correct  = idx === q.correct
     setSelected(idx)
     setAnswered(true)
+
+    // Actualizar SRS para esta pregunta
+    if (userId && q.id) updateCard(userId, q.id, correct, timeMs)
+
     setAnswers(prev => [...prev, {
       question_id: q.id,
+      topic: q.topic,
+      concept: q.concept,
       correct,
-      response_time_ms: Date.now() - startRef.current,
+      selected_idx: idx,
+      correct_idx: q.correct,
+      response_time_ms: timeMs,
     }])
     if (correct) { setStreak(s => s + 1); setShowXP(true); setTimeout(() => setShowXP(false), 1300) }
     else          { setStreak(0) }
   }
 
   function next() {
-    if (current < questions.length - 1) {
-      setCurrent(c => c + 1); setSelected(null); setAnswered(false); startRef.current = Date.now()
+    if (current < shuffledQuestions.length - 1) {
+      setCurrent(c => c + 1); setSelected(null); setAnswered(false)
     } else {
       onComplete(answers)
     }
   }
 
-  if (!questions.length) return (
+  if (!shuffledQuestions.length) return (
     <div className="flex-center" style={{ padding: 32 }}>
       <button className="btn btn-primary btn-lg" onClick={() => onComplete([])}>Completar lección →</button>
     </div>
   )
 
-  const q = questions[current]
+  const q = shuffledQuestions[current]
 
   return (
     <div className="quiz-game">
       {/* header */}
       <div className="quiz-head">
-        <span className="quiz-count">{current + 1} / {questions.length}</span>
+        <span className="quiz-count">{current + 1} / {shuffledQuestions.length}</span>
         {streak >= 2 && <span className="quiz-streak">🔥 {streak} en racha</span>}
       </div>
 
       {/* bar */}
       <div className="quiz-bar">
-        <div className="quiz-bar-fill" style={{ width: `${(current / questions.length) * 100}%` }} />
+        <div className="quiz-bar-fill" style={{ width: `${(current / shuffledQuestions.length) * 100}%` }} />
       </div>
 
       {/* floating XP */}
@@ -248,7 +267,7 @@ function Quiz({ questions, onComplete, ttsEnabled, speak }) {
           <span style={{ fontSize: 20 }}>{selected === q.correct ? '✅' : '❌'}</span>
           <span>{q.explanation}</span>
           <button className="btn btn-primary btn-full mt-16" onClick={next} style={{ fontSize: 16 }}>
-            {current < questions.length - 1 ? 'Siguiente →' : 'Ver resultados →'}
+            {current < shuffledQuestions.length - 1 ? 'Siguiente →' : 'Ver resultados →'}
           </button>
         </div>
       )}
@@ -447,7 +466,7 @@ export default function LessonPage() {
 
       {/* ── QUIZ PHASE ── */}
       {phase === 'quiz' && (
-        <Quiz questions={questions} onComplete={handleQuizComplete} ttsEnabled={ttsEnabled} speak={speak} />
+        <Quiz questions={questions} onComplete={handleQuizComplete} ttsEnabled={ttsEnabled} speak={speak} userId={userId} />
       )}
     </div>
   )

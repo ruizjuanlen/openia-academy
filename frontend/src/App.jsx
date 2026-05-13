@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import LessonPage from './pages/LessonPage.jsx'
 import SkillTree from './pages/SkillTree.jsx'
 import Tutor from './pages/Tutor.jsx'
+import Analytics from './pages/Analytics.jsx'
 import { api } from './api.js'
 
 // ── Global App Context ────────────────────────────────────────
@@ -38,6 +39,7 @@ function Sidebar({ user, installPrompt, onInstall }) {
   const navItems = [
     { icon: '🏠', label: 'Inicio', to: '/dashboard' },
     { icon: '🗺️', label: 'Mapa de Rutas', to: '/skill-tree' },
+    { icon: '📊', label: 'Mi Análisis', to: '/analytics' },
     { icon: '🤖', label: 'Tutor IA', to: '/tutor' },
   ]
 
@@ -97,9 +99,10 @@ function MobileNav({ user }) {
   if (!user) return null
 
   const items = [
-    { icon: '🏠', label: 'Inicio',  to: '/dashboard' },
-    { icon: '🗺️', label: 'Rutas',   to: '/skill-tree' },
-    { icon: '🤖', label: 'Tutor',   to: '/tutor' },
+    { icon: '🏠', label: 'Inicio',   to: '/dashboard' },
+    { icon: '🗺️', label: 'Rutas',    to: '/skill-tree' },
+    { icon: '📊', label: 'Análisis', to: '/analytics' },
+    { icon: '🤖', label: 'Tutor',    to: '/tutor' },
   ]
   return (
     <nav className="mobile-nav">
@@ -210,6 +213,7 @@ function AppProvider() {
             <Route path="/dashboard"   element={<Dashboard />} />
             <Route path="/lesson/:id"  element={<LessonPage />} />
             <Route path="/skill-tree"  element={<SkillTree />} />
+            <Route path="/analytics"   element={<Analytics />} />
             <Route path="/tutor"       element={<Tutor />} />
           </Routes>
         </main>
