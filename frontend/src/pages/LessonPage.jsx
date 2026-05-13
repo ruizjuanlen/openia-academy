@@ -1,7 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../App.jsx'
 import { api } from '../api.js'
+
+// ── TTS helper ────────────────────────────────────────────────
+const LETTERS = ['A', 'B', 'C', 'D']
+
+function useTTS() {
+  const [enabled, setEnabled] = useState(false)
+
+  const speak = useCallback((text) => {
+    if (!enabled || !('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const clean = text
+      .replace(/\*\*/g, '')
+      .replace(/`[^`]*`/g, '')
+      .replace(/```[\s\S]*?```/g, ' (bloque de código) ')
+      .replace(/#{1,6} /g, '')
+      .replace(/\n+/g, '. ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+    const utt = new SpeechSynthesisUtterance(clean)
+    utt.lang = 'es-ES'
+    utt.rate = 0.95
+    window.speechSynthesis.speak(utt)
+  }, [enabled])
+
+  const stop = useCallback(() => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+  }, [])
+
+  const toggle = useCallback(() => {
+    setEnabled(v => {
+      if (v && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+      return !v
+    })
+  }, [])
+
+  return { enabled, toggle, speak, stop }
+}
 
 // ── Rich text renderer ────────────────────────────────────────
 function renderBody(text) {
@@ -51,11 +88,19 @@ const TYPE_CFG = {
   example: { label: 'Ejemplo',    icon: '🔬', color: '#0ea5e9', reveal: false },
 }
 
-function SectionCard({ section, index, total, onContinue }) {
+function SectionCard({ section, index, total, onContinue, ttsEnabled, speak }) {
   const [revealed,  setRevealed]  = useState(false)
   const [reaction,  setReaction]  = useState(null)
   const cfg = TYPE_CFG[section.type] || { label: section.type, icon: '📌', color: '#94a3b8', reveal: false }
   const show = !cfg.reveal || revealed
+
+  // Auto-speak when content becomes visible
+  useEffect(() => {
+    if (show && ttsEnabled && speak) {
+      const text = [section.title, section.body].filter(Boolean).join('. ')
+      speak(text)
+    }
+  }, [show, ttsEnabled]) // eslint-disable-line
 
   function react(r) {
     setReaction(r)
@@ -111,9 +156,8 @@ function SectionCard({ section, index, total, onContinue }) {
 }
 
 // ── Quiz (game mode) ──────────────────────────────────────────
-const LETTERS = ['A', 'B', 'C', 'D']
 
-function Quiz({ questions, onComplete }) {
+function Quiz({ questions, onComplete, ttsEnabled, speak }) {
   const [current,  setCurrent]  = useState(0)
   const [selected, setSelected] = useState(null)
   const [answered, setAnswered] = useState(false)
@@ -121,6 +165,15 @@ function Quiz({ questions, onComplete }) {
   const [streak,   setStreak]   = useState(0)
   const [showXP,   setShowXP]   = useState(false)
   const startRef = useRef(Date.now())
+
+  // Auto-speak question + options when question changes
+  useEffect(() => {
+    if (!questions.length || !ttsEnabled || !speak) return
+    const q = questions[current]
+    const text = q.question + '. ' +
+      q.options.map((opt, i) => `${LETTERS[i]}: ${opt}`).join('. ')
+    speak(text)
+  }, [current, ttsEnabled]) // eslint-disable-line
 
   function select(idx) {
     if (answered) return
@@ -255,8 +308,10 @@ export default function LessonPage() {
   const [secIdx,   setSecIdx]   = useState(0)
   const [startTime] = useState(Date.now())
   const topRef = useRef(null)
+  const { enabled: ttsEnabled, toggle: toggleTTS, speak, stop: stopTTS } = useTTS()
 
   useEffect(() => { api.getLesson(id, userId).then(setLesson); window.scrollTo(0, 0) }, [id, userId])
+  useEffect(() => () => stopTTS(), [stopTTS]) // cancel speech on unmount
 
   async function handleQuizComplete(answers) {
     const secs = Math.round((Date.now() - startTime) / 1000)
@@ -315,10 +370,21 @@ export default function LessonPage() {
 
       {/* lesson title */}
       <div className="lesson-header" ref={topRef}>
-        <div className="flex gap-8 mb-8" style={{ flexWrap: 'wrap' }}>
+        <div className="flex gap-8 mb-8" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="badge badge-muted">⏱ {lesson.duration_min} min</span>
           <span className="badge badge-primary">+{lesson.xp_reward} XP</span>
           <span className="badge badge-muted">{lesson.difficulty}</span>
+          <button
+            onClick={toggleTTS}
+            title={ttsEnabled ? 'Desactivar audio' : 'Activar audio (texto a voz)'}
+            style={{
+              marginLeft: 'auto', background: 'none', border: `1.5px solid ${ttsEnabled ? 'var(--primary)' : 'var(--border)'}`,
+              borderRadius: 8, padding: '3px 10px', fontSize: 16, cursor: 'pointer',
+              color: ttsEnabled ? 'var(--primary)' : 'var(--text-muted)',
+            }}
+          >
+            {ttsEnabled ? '🔊' : '🔇'}
+          </button>
         </div>
         <h1 style={{ fontSize: 22, lineHeight: 1.3 }}>{lesson.title}</h1>
       </div>
@@ -341,6 +407,8 @@ export default function LessonPage() {
             index={secIdx}
             total={sections.length}
             onContinue={advanceSection}
+            ttsEnabled={ttsEnabled}
+            speak={speak}
           />
         </>
       )}
@@ -379,7 +447,7 @@ export default function LessonPage() {
 
       {/* ── QUIZ PHASE ── */}
       {phase === 'quiz' && (
-        <Quiz questions={questions} onComplete={handleQuizComplete} />
+        <Quiz questions={questions} onComplete={handleQuizComplete} ttsEnabled={ttsEnabled} speak={speak} />
       )}
     </div>
   )

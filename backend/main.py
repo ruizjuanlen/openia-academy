@@ -1,5 +1,6 @@
 import json
 import uuid
+import random
 import boto3
 import os
 from datetime import datetime
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Any
 
 from database import init_db, get_conn, row_to_dict
-from curriculum import TRACKS, LESSONS, DIAGNOSTIC_QUESTIONS
+from curriculum import TRACKS, LESSONS, DIAGNOSTIC_QUESTIONS, LESSON_QUESTIONS
 from adaptive import (
     get_user_stats, get_next_lesson, process_quiz_result,
     process_diagnostic, get_performance_insights, ACHIEVEMENTS, LEVEL_XP
@@ -155,14 +156,29 @@ def get_lesson(lesson_id: str, user_id: Optional[str] = None):
     if not lesson:
         raise HTTPException(404, "Lección no encontrada")
 
-    # Añadir preguntas de quiz (últimas 3-5 del banco diagnóstico o generadas)
-    track_questions = [q for q in DIAGNOSTIC_QUESTIONS
-                      if q["topic"] == lesson["track_id"]]
+    # Prefer lesson-specific bank, fall back to diagnostic pool by track
+    pool = LESSON_QUESTIONS.get(lesson_id) or [
+        q for q in DIAGNOSTIC_QUESTIONS if q["topic"] == lesson["track_id"]
+    ]
 
-    # Selección de preguntas para este quiz basada en nivel
-    quiz_questions = track_questions[:4] if len(track_questions) >= 4 else track_questions
+    # Random sample: 5-7 questions per quiz (ADHD-friendly, unpredictable)
+    target = min(len(pool), random.randint(5, 7))
+    selected = random.sample(pool, target) if len(pool) >= target else list(pool)
 
-    result = {**lesson, "quiz_questions": quiz_questions}
+    # Shuffle options for each question → eliminates position/length bias
+    quiz_questions = []
+    for q in selected:
+        opts = list(q["options"])
+        correct_text = opts[q["correct"]]
+        random.shuffle(opts)
+        quiz_questions.append({
+            **q,
+            "options": opts,
+            "correct": opts.index(correct_text),
+        })
+
+    lesson_data = {k: v for k, v in lesson.items()}
+    result = {**lesson_data, "quiz_questions": quiz_questions}
 
     if user_id:
         conn = get_conn()
