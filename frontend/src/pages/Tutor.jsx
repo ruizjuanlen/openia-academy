@@ -79,7 +79,9 @@ export default function Tutor() {
             Adaptado a tu nivel · Respuestas cortas · Optimizado para TDAH
           </p>
         </div>
-        <div className="badge badge-success">En línea</div>
+        <div className={`badge ${navigator.onLine ? 'badge-success' : 'badge-muted'}`}>
+          {navigator.onLine ? '🌐 En línea' : '📴 Offline'}
+        </div>
       </div>
 
       {/* Quick questions */}

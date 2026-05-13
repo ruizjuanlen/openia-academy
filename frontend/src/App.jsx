@@ -147,6 +147,11 @@ function AppProvider() {
     if (!uid) return
     try {
       const dash = await api.getDashboard(uid)
+      if (!dash) {
+        localStorage.removeItem('openia_uid')
+        setUserId(null)
+        return
+      }
       setUser(dash.user)
     } catch {
       localStorage.removeItem('openia_uid')
@@ -163,6 +168,10 @@ function AppProvider() {
   useEffect(() => {
     if (!userId && loc.pathname !== '/') {
       navigate('/')
+    } else if (userId && loc.pathname === '/') {
+      // Usuario ya registrado: ir directo a donde corresponde
+      if (user && !user.diagnostic_done) navigate('/diagnostic')
+      else navigate('/dashboard')
     } else if (userId && user && !user.diagnostic_done && loc.pathname === '/dashboard') {
       navigate('/diagnostic')
     }
