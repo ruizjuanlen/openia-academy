@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dev-dist/
+
+# Android build outputs
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+android/app/.cxx/
+
+# Keystore (generated locally, stored as GitHub Secret for CI)
+android/release.keystore

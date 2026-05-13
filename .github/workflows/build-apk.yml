@@ -2,7 +2,7 @@ name: 🤖 Build Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -39,7 +39,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: ''
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       # ─── Java 17 ──────────────────────────────────────────────
       - name: Setup JDK 17
@@ -66,13 +66,41 @@ jobs:
         working-directory: frontend/android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Debug APK
+      - name: Upload Debug APK (Artifact)
         if: ${{ github.event.inputs.build_type != 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: OpenIA-Academy-debug.apk
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+      - name: Create GitHub Release (Debug)
+        if: ${{ github.event.inputs.build_type != 'release' && github.ref_type == 'branch' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest-debug
+          name: "📱 OpenIA Academy — Latest Build"
+          prerelease: true
+          files: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          body: |
+            ## 📱 OpenIA Academy — Debug APK
+
+            > ⚠️ Build de desarrollo — no requiere firma para instalar
+
+            ### 📲 Instalar en Android
+            1. Descarga **app-debug.apk** (botón de abajo ↓)
+            2. En tu Android: **Ajustes → Seguridad → Instalar apps desconocidas** → ✅
+            3. Abre el archivo descargado y pulsa **Instalar**
+
+            ### 🔗 Link directo para compartir
+            ```
+            https://github.com/${{ github.repository }}/releases/latest/download/app-debug.apk
+            ```
+
+            ---
+            🤖 Build automático · Commit: `${{ github.sha }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ─── Build RELEASE APK ────────────────────────────────────
       - name: Decode Keystore
